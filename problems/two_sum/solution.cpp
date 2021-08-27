@@ -10,6 +10,8 @@ public:
         /* the index of the complementary element */
         int i_complement;
 
+        /* search for a previous value first, in case of duplicates */
+
         /* loop through the numbers */
         for (int k = 0, len = nums.size(); k < len; ++k) {
             /* get the current element */
@@ -27,6 +29,8 @@ public:
             } /* if (i_complement >= 0) */
 
             /* put the index + 1 of the element into the hash table */
+            /* overwrites previous values, which is okay.
+               the solution doesn't care about remembering first instances */
             indexP1s[curr] = (k + 1);
         } /* for (int k = 0, len = nums.size(); k < len; ++k) */
 
