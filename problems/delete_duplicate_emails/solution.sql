@@ -1,32 +1,28 @@
 # Please write a DELETE statement and DO NOT write a SELECT statement.
 # Write your MySQL query statement below
 
+# Table: Person
+
 # Delete all the duplicate emails, keeping only one unique email with
 # the smallest id.
 
-# Table: Person
-
+# delete all emails not having the minimum ID of that email
 DELETE FROM Person
-    # delete when the email is the same, but ids differ
     WHERE
-        # id does not match the minimum ID for each email
         (id NOT IN
             (
-                # select from the MinIds that match this email
-                SELECT id
-                    FROM
-                        (
-                            # use a table of emails to minimum IDs
-                            SELECT
-                                    email,
-                                    # choose the minimum ID for each email
-                                    min(id) AS id
-                                FROM
-                                    Person
-                                GROUP BY email
-                        ) As MinIds
-                    WHERE
-                        (Person.id = MinIds.id)
+                # guard against:
+                #   You can't specify target table 'Person' for
+                #   update in FROM clause
+                SELECT min_id FROM
+                (
+                    # find the minimum IDs
+                    # this must be SELECT because DELETE does not have GROUP BY
+                    SELECT min(id) AS min_id
+                        FROM Person
+                        # the minimum ID for each email
+                        GROUP BY email
+                ) As MinIds
             )
         )
 ;
