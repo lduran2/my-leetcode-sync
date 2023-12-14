@@ -7,11 +7,15 @@
  * For       : https://leetcode.com/problems/integer-to-roman/
  *
  * CHANGELOG :
+ *  v1.0.2 - 2023-12-14t15:31R
+ *      correct placement for null terminator
+ *      fixed endianness of symbol values
+ *
  *  v1.0.1 - 2023-12-14t07:14R
  *      testing conversion table
  *
  *  v1.0.0 - 2023-12-14t06:25R
- *      testing character buffer
+ *      testing character buffer 
  */
 
 #include <stddef.h> /* for size_t */
@@ -21,31 +25,33 @@
  * Conversion table between integers and Roman numerals symbols.
  * Each row represents a conversion by repeated subtraction from
  * highest to lowest.
- * All cells are bytes so integer equivalents are represented as 2
- * bytes (for this reason, integers > 255 are represented in the
+ * All cells are bytes so each integer equivalents are represented as
+ * 2 bytes = 1 word, which is big endian according to the endianness
+ * of LeetCode's implementation of gcc (check your own version).
+ * (So for this reason, integers > 255 are represented in the
  * hexadecimal base).
  *
  * column 0: the # of rows.
- * column 1: high byte of integer equivalent of Roman numeral symbol.
- * column 2: low  byte of integer equivalent ... .
+ * column 1: low  byte of integer equivalent of Roman numeral symbol.
+ * column 2: high byte of integer equivalent ... .
  * column 3: number of characters in Roman numeral symbol.
  * column 4...: each successive character of the Roman numeral symbol,
  * the number of which is stored in column 3.
  */
 char const ROMAN_TABLE[]
-  = {13, 0x3, 0xE8 /* 1000 */, 1, 'M',
-         0x3, 0x84 /*  900 */, 2, 'C', 'M',
-         0x1, 0xF4 /*  500 */, 1, 'D',
-         0x1, 0x90 /*  400 */, 2, 'C', 'D',
-         0,            100   , 1, 'C',
-         0,             90   , 2, 'X', 'C',
-         0,             50   , 1, 'L',
-         0,             40   , 2, 'X', 'L',
-         0,             10   , 1, 'X',
-         0,              9   , 2, 'I', 'X',
-         0,              5   , 1, 'V',
-         0,              4   , 2, 'I', 'V',
-         0,              1   , 1, 'I',
+  = {13, /* 1000 */ 0xE8, 0x3, 1, 'M',
+         /*  900 */ 0x84, 0x3, 2, 'C', 'M',
+         /*  500 */ 0xF4, 0x1, 1, 'D',
+         /*  400 */ 0x90, 0x1, 2, 'C', 'D',
+             100,           0, 1, 'C',
+              90,           0, 2, 'X', 'C',
+              50,           0, 1, 'L',
+              40,           0, 2, 'X', 'L',
+              10,           0, 1, 'X',
+               9,           0, 2, 'I', 'X',
+               5,           0, 1, 'V',
+               4,           0, 2, 'I', 'V',
+               1,           0, 1, 'I',
     }; /* end ROMAN_TABLE */
 
 /**
@@ -84,37 +90,55 @@ char *addNumerals(char *cbuf, char const *table, int num) {
     __asm__(
         ".extern addSymbol;"    /* for adding each numeral symbol */
 
-        "push %rax;"    /* store %rax for use */
+        "push %rdi;"            /* store %rdi for return */
+        "push %rbx;"            /* store %rbx for use as symbol size */
         /* dummy buffer */
         "movl $'Z, %eax;"   /* store Z in accumulator */
 
         /* for all 15 characters, counting down */
         "movl $14, %ecx;"
     "cbuf_loop:"
-        "movb %al, (%rdi,%rcx);" /* character in accumulator to cbuf */
-        "dec %rax;" /* next character */
+        "movb %al, (%rdi,%rcx);"    /* character in accumulator to cbuf */
+        "dec %rax;"                 /* next character */
         "loop cbuf_loop;"
+        "movb %al, (%rdi,%rcx);" /* character in accumulator to cbuf */
     /* end cbuf_loop */
     
-        "movl $('A - 1), %eax;"    /* accumulate from ('A' - 1) */
-
         /* for each symbol row in the conversion table */ 
-        "movzw (%rsi), %rcx;" /* load the number of symbols */
+        "movzb (%rsi), %rcx;"   /* load the number of symbols */
+        "inc  %rsi;"            /* first symbol */
     "numeral_table_loop:"
-        "inc %rsi;" /* next symbol */
-        "inc %rax;" /* increase accumulator */
+        "movzw 0(%rsi), %rax;"  /* %rax := value of symbol */
+        "movzb 2(%rsi), %rbx;"  /* %rbx :=  size of symbol */
+        /* if (num < *table) then skip_numeral_symbol */
+        "sub  %rax, %rdx;"
+        "jl   skip_numeral_symbol;"
+        //"call addSymbol;"     /* otherwise add the symbol */
+        "add  %rbx, %rdi;"      /* advance cbuf */
+        "jmp  numeral_table_loop;" 
+        "jmp  continue_numeral_table_loop;"
+    "skip_numeral_symbol:"
+        "add  %rax, %rdx;"      /* recover %rdx from if-subtract */
+        /* next symbol row */
+        "add  %rbx, %rsi;"
+        "add    $3, %rsi;"      /* value word length + size byte */
+    "continue_numeral_table_loop:"
         "loop numeral_table_loop;"
-    /* end numeral_table_loop */
+    "end_numeral_table_loop:"
 
-        "movb %al, (%rdi);"     /* accumulator to cbuf, expect "M" */
-        "movb $0, 15(%rdi);"    /* null terminate */
+        "movb $0, (%rdi);"      /* null terminate */
 
-        "pop %rax;" /* restore %rax */
+        "pop %rbx;"             /* restore %rbx */
+        "pop %rdi;"             /* restore %rdi for return */
+        "mov  %rdi, %rax;"      /* return original %rdi */
         "ret;"
     );
 } /* end addNumerals(char *, char const *, int) */
 
 __attribute__((naked))
 void addSymbol(char *cbuf, char const *row) {
+    __asm__(
 
+        "ret;"
+    );
 } /* end addSymbol(char *, char const *) */
