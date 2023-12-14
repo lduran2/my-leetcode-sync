@@ -7,8 +7,11 @@
  * For       : https://leetcode.com/problems/integer-to-roman/
  *
  * CHANGELOG :
+ *  v1.0.1 - 2023-12-14t07:14R
+ *      testing conversion table
+ *
  *  v1.0.0 - 2023-12-14t06:25R
- *      testing character buffer 
+ *      testing character buffer
  */
 
 #include <stddef.h> /* for size_t */
@@ -87,13 +90,23 @@ char *addNumerals(char *cbuf, char const *table, int num) {
 
         /* for all 15 characters, counting down */
         "movl $14, %ecx;"
-    "numeral_table_loop:"
+    "cbuf_loop:"
         "movb %al, (%rdi,%rcx);" /* character in accumulator to cbuf */
         "dec %rax;" /* next character */
+        "loop cbuf_loop;"
+    /* end cbuf_loop */
+    
+        "movl $('A - 1), %eax;"    /* accumulate from ('A' - 1) */
+
+        /* for each symbol row in the conversion table */ 
+        "movzw (%rsi), %rcx;" /* load the number of symbols */
+    "numeral_table_loop:"
+        "inc %rsi;" /* next symbol */
+        "inc %rax;" /* increase accumulator */
         "loop numeral_table_loop;"
     /* end numeral_table_loop */
-    
-        "movb $'I, (%rdi);"     /* replace 1st character with I */
+
+        "movb %al, (%rdi);"     /* accumulator to cbuf, expect "M" */
         "movb $0, 15(%rdi);"    /* null terminate */
 
         "pop %rax;" /* restore %rax */
