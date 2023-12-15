@@ -7,6 +7,10 @@
  * For       : https://leetcode.com/problems/integer-to-roman/
  *
  * CHANGELOG :
+ *  v1.0.3 - 2023-12-14t20:27R
+ *      implemented adding each numeral symbol
+ *      clean up
+ *
  *  v1.0.2 - 2023-12-14t15:31R
  *      correct placement for null terminator
  *      fixed endianness of symbol values
@@ -92,53 +96,64 @@ char *addNumerals(char *cbuf, char const *table, int num) {
 
         "push %rdi;"            /* store %rdi for return */
         "push %rbx;"            /* store %rbx for use as symbol size */
-        /* dummy buffer */
-        "movl $'Z, %eax;"   /* store Z in accumulator */
 
-        /* for all 15 characters, counting down */
-        "movl $14, %ecx;"
-    "cbuf_loop:"
-        "movb %al, (%rdi,%rcx);"    /* character in accumulator to cbuf */
-        "dec %rax;"                 /* next character */
-        "loop cbuf_loop;"
-        "movb %al, (%rdi,%rcx);" /* character in accumulator to cbuf */
-    /* end cbuf_loop */
-    
         /* for each symbol row in the conversion table */ 
         "movzb (%rsi), %rcx;"   /* load the number of symbols */
-        "inc  %rsi;"            /* first symbol */
+        "inc  %rsi;"            /* first symbol row */
     "numeral_table_loop:"
         "movzw 0(%rsi), %rax;"  /* %rax := value of symbol */
         "movzb 2(%rsi), %rbx;"  /* %rbx :=  size of symbol */
         /* if (num < *table) then skip_numeral_symbol */
         "sub  %rax, %rdx;"
         "jl   skip_numeral_symbol;"
-        //"call addSymbol;"     /* otherwise add the symbol */
+        "call addSymbol;"       /* otherwise add the symbol */
         "add  %rbx, %rdi;"      /* advance cbuf */
-        "jmp  numeral_table_loop;" 
-        "jmp  continue_numeral_table_loop;"
+        "jmp  numeral_table_loop;"  /* jump without dec rcx */
     "skip_numeral_symbol:"
         "add  %rax, %rdx;"      /* recover %rdx from if-subtract */
         /* next symbol row */
         "add  %rbx, %rsi;"
         "add    $3, %rsi;"      /* value word length + size byte */
-    "continue_numeral_table_loop:"
         "loop numeral_table_loop;"
     "end_numeral_table_loop:"
 
         "movb $0, (%rdi);"      /* null terminate */
 
-        "pop %rbx;"             /* restore %rbx */
-        "pop %rdi;"             /* restore %rdi for return */
-        "mov  %rdi, %rax;"      /* return original %rdi */
+        "pop  %rbx;"            /* restore %rbx */
+        "pop  %rdi;"            /* restore %rdi for return */
+        "mov  %rdi, %rax;"      /* return original @cbuf */
         "ret;"
     );
 } /* end addNumerals(char *, char const *, int) */
 
+/**
+ * Adds the symbol in the given @row to buffer @cbuf.
+ * @param cbuf %rdi: char * = to contain $num as numerals
+ * @param row %rsi: char const * = whose symbol to add (from address of
+ * value)
+ */
 __attribute__((naked))
 void addSymbol(char *cbuf, char const *row) {
     __asm__(
+        /* new call frame */
+        "push %rdi;"
+        "push %rsi;"
+        "push %rcx;"
+        "push %rbx;"
 
+        /* for each symbol character */
+        "movzb 2(%rsi), %rcx;"      /* load symbol size into count */
+    "numeral_symbol_loop:"
+        "movb 2(%rsi,%rcx), %bl;"   /* load character from symbol row */
+        "movb %bl, -1(%rdi,%rcx);"  /* store in buffer */
+        "loop numeral_symbol_loop;"
+    "end_numeral_symbol_loop:"
+
+        /* old call frame */
+        "pop  %rbx;"
+        "pop  %rcx;"
+        "pop  %rsi;"
+        "pop  %rdi;"
         "ret;"
     );
 } /* end addSymbol(char *, char const *) */
